@@ -13,11 +13,29 @@ if "step" not in st.session_state:
 placeholder = st.empty()
 
 
-html_code = "<div style='text-align: center;'>"
-for _ in range(num_names):
+html_code = """
+<div style='
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    justify-items: center;
+    align-items: center;
+    text-align: center;
+'>
+"""
+
+for _ in range(4):
     color = random.choice(colors)
-    html_code += f"<h1 style='display: inline-block; margin: 10px; color: {color}; font-size: 100px;'>{name}</h1>"
+    html_code += f"""
+    <h1 style='
+        margin: 10px;
+        color: {color};
+        font-size: 80px;
+    '>{name}</h1>
+    """
+
 html_code += "</div>"
+
 
 placeholder.markdown(html_code, unsafe_allow_html=True)
 
