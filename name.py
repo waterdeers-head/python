@@ -16,7 +16,7 @@ placeholder = st.empty()
 html_code = "<div style='text-align: center;'>"
 for _ in range(num_names):
     color = random.choice(colors)
-    html_code += f"<h1 style='display: inline-block; margin: 10px; color: {color};'>{name}</h1>"
+    html_code += f"<h1 style='display: inline-block; margin: 10px; color: {color}; font-size: 100px;'>{name}</h1>"
 html_code += "</div>"
 
 placeholder.markdown(html_code, unsafe_allow_html=True)
