@@ -20,7 +20,7 @@ html_code += '</div>'
 
 placeholder.markdown(html_code, unsafe_allow_html=True)
 
-time.sleep(0.001)
+time.sleep(0.01)
 st.session_state.step += 1
 st.rerun()
 
