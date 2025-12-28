@@ -1,163 +1,166 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-<meta charset="utf-8">
-<title>Fruit Slash</title>
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: linear-gradient(#222, #000);
-    touch-action: none;
-    user-select: none;
-  }
-  canvas {
-    display: block;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>Fruit Ninja Mini</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    body { margin:0; overflow:hidden; background:#111; touch-action:none; }
+    canvas { display:block; }
+  </style>
 </head>
 <body>
-
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener("resize", resize);
+function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; }
+resize(); addEventListener("resize", resize);
 
-let fruits = [];
-let slashes = [];
-let score = 0;
-let lives = 3;
-let gameOver = false;
+// ===== 설정 =====
+const FRUIT_RADIUS = 40;
+const BOMB_RADIUS  = 45;
+const GRAVITY = 0.35;
 
-const fruitEmojis = ["🍎","🍊","🍉","🍌","🍇"];
+// ===== 상태 =====
+let items=[], score=0, hearts=3, gameOver=false;
 
-class Fruit {
-  constructor() {
-    this.isBomb = Math.random() < 0.15;
-    this.emoji = this.isBomb ? "💣" : fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
-    this.x = Math.random() * canvas.width;
-    this.y = canvas.height + 50;
-    this.vx = (Math.random() - 0.5) * 4;
-    this.vy = - (10 + Math.random() * 8);
-    this.r = 30;
-    this.sliced = false;
-  }
-  update() {
-    this.vy += 0.3; // 중력
-    this.x += this.vx;
-    this.y += this.vy;
-  }
-  draw() {
-    ctx.font = "40px serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(this.emoji, this.x, this.y);
-  }
-}
+// 🏆 최고 점수 (불러오기)
+let highScore = localStorage.getItem("highScore") || 0;
 
-class Slash {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.life = 10;
-  }
-  update() {
-    this.life--;
-  }
-  draw() {
-    ctx.strokeStyle = "rgba(255,255,255," + this.life/10 + ")";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, 20, 0, Math.PI*2);
-    ctx.stroke();
-  }
-}
+// 콤보
+let combo=0, comboTimer=0;
 
-function spawnFruit() {
-  if (!gameOver) fruits.push(new Fruit());
-}
-setInterval(spawnFruit, 700);
+// 베기 궤적
+let trail=[]; const TRAIL_MAX=12;
 
-function slice(x, y) {
-  slashes.push(new Slash(x, y));
-
-  fruits.forEach(f => {
-    if (f.sliced) return;
-    const dx = f.x - x;
-    const dy = f.y - y;
-    if (Math.sqrt(dx*dx + dy*dy) < f.r) {
-      f.sliced = true;
-
-      if (f.isBomb) {
-        gameOver = true;
-      } else {
-        score++;
-      }
-    }
+// ===== 생성 =====
+function spawnItem(){
+  const isBomb = Math.random()<0.2;
+  const r = isBomb?BOMB_RADIUS:FRUIT_RADIUS;
+  const x = Math.random()*(canvas.width-r*2)+r;
+  const y = canvas.height+r;
+  items.push({
+    x,y,r,isBomb,
+    vx:(Math.random()-0.5)*3,
+    vy:-(15+Math.random()*6)
   });
 }
 
-canvas.addEventListener("mousemove", e => slice(e.clientX, e.clientY));
-canvas.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  slice(t.clientX, t.clientY);
+// ===== 로직 =====
+function loseHeart(){ if(--hearts<=0) endGame(); }
+
+function endGame(){
+  gameOver = true;
+
+  // 🏆 최고 점수 갱신
+  if(score > highScore){
+    highScore = score;
+    localStorage.setItem("highScore", highScore);
+  }
+}
+
+function cutAt(x,y){
+  trail.push({x,y,life:1});
+  if(trail.length>TRAIL_MAX) trail.shift();
+
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    if(Math.hypot(x-it.x, y-it.y) < it.r){
+      items.splice(i,1);
+      if(it.isBomb){ endGame(); return; }
+      combo++; comboTimer=60;
+      score += 10*combo;
+    }
+  }
+}
+
+// ===== 입력 =====
+canvas.addEventListener("mousemove",e=>!gameOver&&cutAt(e.clientX,e.clientY));
+canvas.addEventListener("touchmove",e=>{
+  if(!gameOver){ const t=e.touches[0]; cutAt(t.clientX,t.clientY); }
 });
 
-function drawUI() {
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 20, 30);
-  ctx.fillText("❤️ ".repeat(lives), canvas.width - 100, 30);
-}
+// ===== 재시작 =====
+canvas.addEventListener("click",e=>{
+  if(!gameOver) return;
+  const bx=canvas.width/2-100, by=canvas.height/2+80;
+  if(e.clientX>bx&&e.clientX<bx+200&&e.clientY>by&&e.clientY<by+50){
+    items=[]; score=0; hearts=3; combo=0; gameOver=false;
+  }
+});
 
-function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+// ===== 그리기 =====
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  fruits.forEach(f => {
-    f.update();
-    f.draw();
-  });
-
-  slashes.forEach(s => {
-    s.update();
-    s.draw();
-  });
-
-  fruits = fruits.filter(f => {
-    if (f.y > canvas.height + 100 && !f.sliced && !f.isBomb) {
-      lives--;
-      if (lives <= 0) gameOver = true;
+  // 아이템
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    it.x+=it.vx; it.y+=it.vy; it.vy+=GRAVITY;
+    if(it.x<it.r||it.x>canvas.width-it.r) it.vx*=-1;
+    if(it.y>canvas.height+it.r){
+      items.splice(i,1);
+      if(!it.isBomb) loseHeart();
+      continue;
     }
-    return f.y < canvas.height + 200 && !f.sliced;
-  });
-
-  slashes = slashes.filter(s => s.life > 0);
-
-  drawUI();
-
-  if (gameOver) {
-    ctx.fillStyle = "red";
-    ctx.font = "50px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
-    ctx.font = "24px Arial";
-    ctx.fillText("Score: " + score, canvas.width/2, canvas.height/2 + 40);
-    return;
+    ctx.beginPath();
+    ctx.arc(it.x,it.y,it.r,0,Math.PI*2);
+    ctx.fillStyle=it.isBomb?"#444":"orange";
+    ctx.fill();
   }
 
-  requestAnimationFrame(gameLoop);
+  // 베기 궤적
+  for(let i=0;i<trail.length-1;i++){
+    const a=trail[i], b=trail[i+1];
+    ctx.strokeStyle=`rgba(255,255,255,${a.life})`;
+    ctx.lineWidth=6;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    a.life-=0.1;
+  }
+  trail=trail.filter(t=>t.life>0);
+
+  // 콤보 감소
+  if(comboTimer>0) comboTimer--; else combo=0;
+
+  // UI
+  ctx.fillStyle="#fff"; ctx.font="24px Arial";
+  ctx.fillText("Score: "+score,20,40);
+  ctx.fillText("Best: "+highScore,20,70);
+  ctx.fillStyle="red";
+  ctx.fillText("❤️".repeat(hearts),20,100);
+
+  if(combo>1){
+    ctx.fillStyle="yellow";
+    ctx.fillText("COMBO x"+combo, canvas.width/2-70, 40);
+  }
+
+  // 게임오버
+  if(gameOver){
+    ctx.fillStyle="rgba(0,0,0,0.7)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#fff"; ctx.textAlign="center";
+    ctx.font="48px Arial";
+    ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
+    ctx.font="24px Arial";
+    ctx.fillText("최고 점수: "+highScore, canvas.width/2, canvas.height/2+40);
+
+    // 버튼
+    const bx=canvas.width/2-100, by=canvas.height/2+80;
+    ctx.fillStyle="#fff"; ctx.fillRect(bx,by,200,50);
+    ctx.fillStyle="#000";
+    ctx.fillText("다시 시작", canvas.width/2, by+34);
+    ctx.textAlign="left";
+  }
+
+  requestAnimationFrame(draw);
 }
 
-gameLoop();
+setInterval(()=>!gameOver&&spawnItem(),900);
+draw();
 </script>
-
 </body>
 </html>
+
